@@ -1,0 +1,185 @@
+<div class="blog-container">
+  <div class="header">
+    <h1>Blog Posts Management</h1>
+    <div class="header-controls">
+      <div class="filter-group">
+        <label for="genreFilter">Filter by Genre:</label>
+        <select id="genreFilter" [(ngModel)]="selectedGenre" (ngModelChange)="filterByGenre()" class="form-control">
+          <option value="">All Genres</option>
+          <option *ngFor="let genre of genres" [value]="genre">{{ genre }}</option>
+        </select>
+      </div>
+      <button class="btn btn-primary" (click)="toggleCreateForm()">
+        {{ showCreateForm ? 'Cancel' : 'Create New Post' }}
+      </button>
+    </div>
+  </div>
+
+  <div *ngIf="loading" class="loading">
+    <div class="spinner"></div>
+    Loading...
+  </div>
+
+  <div *ngIf="showCreateForm" class="create-form">
+    <h2>Create New Blog Post</h2>
+    <div class="form-group">
+      <label for="newTitle">Title:</label>
+      <input id="newTitle" type="text" [(ngModel)]="newPost.title" placeholder="Enter blog post title" maxlength="200"
+        class="form-control">
+      <small class="char-count">{{ newPost.title.length }}/200 characters</small>
+    </div>
+
+    <div class="form-group">
+      <label for="newTag">Genre:</label>
+      <select id="newTag" [(ngModel)]="newPost.tag" class="form-control">
+        <option value="">Select a genre</option>
+        <option *ngFor="let genre of genres" [value]="genre">{{ genre }}</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label for="newContent">Content:</label>
+      <textarea id="newContent" [(ngModel)]="newPost.content" placeholder="Enter blog post content" rows="6"
+        class="form-control"></textarea>
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-success" (click)="createPost()" [disabled]="loading">
+        <i class="icon-save"></i> Create Post
+      </button>
+      <button class="btn btn-secondary" (click)="toggleCreateForm()">
+        <i class="icon-cancel"></i> Cancel
+      </button>
+      <div *ngIf="error" class="alert alert-error">
+        {{ error }}
+      </div>
+    </div>
+  </div>
+
+  <div class="blog-posts">
+    <div *ngIf="paginatedPosts.length === 0 && !loading" class="no-posts">
+      No blog posts found. Create your first post!
+    </div>
+
+    <div *ngFor="let post of paginatedPosts" class="blog-post-card">
+
+      <div *ngIf="!isEditing(post)" class="post-view">
+        <div class="post-header">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <h3 class="post-title" style="margin: 0;">{{ post.title }}</h3>
+            <div style="display: flex; justify-content: flex-start;">
+              <span class="tag-badge">( {{ post.tag }} )</span>
+            </div>
+          </div>
+          <div class="post-actions">
+            <button class="btn btn-edit" style="background-color: #e3e36b; color: white;" (click)="startEditing(post)" title="Edit">
+              <i class="icon-edit">Edit</i>
+            </button>
+          </div>
+        </div>
+        <div class="post-content">{{ post.content }}</div>
+        <div class="post-meta">
+          <small>Published: {{ formatDate(post.publication_date || '') }}</small>
+        </div>
+
+        <div class="comment-section">
+          <div class="comment-actions">
+            <button class="btn btn-comment"
+              style="float: right; background-color: rgb(12, 15, 226); color: white; margin-bottom:20px;"
+              (click)="toggleCommentForm(post.id!)" [disabled]="isCommentLoading(post.id!)">
+              {{ showCommentForm[post.id!] ? 'Cancel Comment' : 'Add Comment' }}
+            </button>
+          </div>
+
+          <div *ngIf="isShowingCommentForm(post.id!) && newComment[post.id!]" class="comment-form">
+            <div class="form-group">
+              <label for="commentName-{{post.id}}">Your Name:</label>
+              <input id="commentName-{{post.id}}" type="text" [(ngModel)]="newComment[post.id!].name"
+                placeholder="Enter your name" maxlength="100" class="form-control" required>
+            </div>
+
+            <div class="form-group">
+              <label for="commentText-{{post.id}}">Comment:</label>
+              <textarea id="commentText-{{post.id}}" [(ngModel)]="newComment[post.id!].comment_text"
+                placeholder="Write your comment here..." maxlength="500" rows="4" class="form-control"
+                required></textarea>
+              <small class="text-muted">
+                {{ newComment[post.id!].comment_text.length || 0 }}/500 characters
+              </small>
+            </div>
+
+            <div class="form-actions">
+              <button class="btn btn-primary" (click)="addComment(post.id!)" [disabled]="isCommentLoading(post.id!)">
+                <span *ngIf="isCommentLoading(post.id!)">Submitting...</span>
+                <span *ngIf="!isCommentLoading(post.id!)">Submit Comment</span>
+              </button>
+              <button class="btn btn-secondary" (click)="cancelComment(post.id!)"
+                [disabled]="isCommentLoading(post.id!)">
+                Cancel
+              </button>
+              <div *ngIf="error" class="alert alert-error">
+                {{ error }}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div *ngIf="isEditing(post)" class="post-edit">
+        <div class="form-group">
+          <label>Title:</label>
+          <input type="text" [(ngModel)]="editingPost.title" maxlength="200" class="form-control">
+          <small class="char-count">{{ editingPost.title.length }}/200 characters</small>
+        </div>
+        <div class="form-group">
+          <label>Genre:</label>
+          <select [(ngModel)]="editingPost.tag" class="form-control">
+            <option value="">Select a genre</option>
+            <option *ngFor="let genre of genres" [value]="genre">{{ genre }}</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Content:</label>
+          <textarea [(ngModel)]="editingPost.content" rows="6" class="form-control"></textarea>
+        </div>
+        <div class="edit-actions">
+          <button class="btn btn-success" (click)="saveEdit()" [disabled]="loading" title="Save">
+            <i class="icon-save">Save</i>
+          </button>
+          <button class="btn btn-secondary" (click)="cancelEditing()" title="Cancel">
+            <i class="icon-cancel">Cancel</i>
+          </button>
+          <button class="btn btn-danger" (click)="deletePost(post)" [disabled]="loading" title="Delete">
+            <i class="icon-delete">Delete</i>
+          </button>
+          <div *ngIf="error" class="alert alert-error">
+            {{ error }}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Pagination Section -->
+  <div *ngIf="blogPosts.length > 0" class="pagination-container">
+    <button class="pagination-btn" (click)="previousPage()" [disabled]="currentPage === 1">
+      ← Previous
+    </button>
+
+    <div class="page-numbers">
+      <span *ngFor="let page of getPageNumbers()"
+            class="page-number"
+            [class.active]="page === currentPage"
+            (click)="goToPage(page)">
+        {{ page }}
+      </span>
+    </div>
+
+    <button class="pagination-btn" (click)="nextPage()" [disabled]="currentPage === totalPages">
+      Next →
+    </button>
+
+    <div class="pagination-info">
+      Page {{ currentPage }} of {{ totalPages }} ({{ blogPosts.length }} total posts)
+    </div>
+  </div>
+</div>
